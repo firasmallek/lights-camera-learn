@@ -1,13 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import { Resend } from "resend";
-import { headers } from "next/headers";
-import { neon } from "@neondatabase/serverless";
-import crypto from "crypto";
-
-const sql = neon(process.env.DATABASE_URL!);
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 const applicationSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -39,214 +32,88 @@ const applicationSchema = z.object({
   cfTurnstileResponse: z.string().min(1, "Turnstile verification failed")
 });
 
-function escapeHtml(unsafe: string | undefined | null) {
-  if (!unsafe) return "";
-  return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+const googleFormResponseUrl = "https://docs.google.com/forms/d/e/1FAIpQLSc5rSiffSe24O0xEA68SLVUjNkyyw4-SSrWhbSnKKiqdibCYQ/formResponse";
+
+type ApplicationData = Omit<z.infer<typeof applicationSchema>, "cfTurnstileResponse">;
+
+async function submitToGoogleForm(formData: ApplicationData) {
+  const googleFormData = new URLSearchParams();
+  const add = (entry: string, value: string | undefined) => {
+    if (value) googleFormData.append(entry, value);
+  };
+
+  add("entry.689762424", formData.name);
+  add("entry.1132242182", formData.pronouns);
+  add("entry.316136939", formData.email);
+  add("entry.1306164221", formData.phone);
+  add("entry.2127327475", formData.birthday);
+  add("entry.463370288", formData.nationality);
+  add("entry.1178005245", formData.addressLine1);
+  add("entry.777570682", formData.addressLine2);
+  add("entry.1386301814", formData.city);
+  add("entry.1496090357", formData.state);
+  add("entry.2085431263", formData.zip);
+  add("entry.337934406", formData.languages);
+  add("entry.13463708", formData.film_project);
+  add("entry.1130208775", formData.favorite_movie);
+  add("entry.1720743023", formData.traveled);
+  add("entry.1567726044", formData.why_youth);
+  add("entry.1517249501", formData.passions);
+  add("entry.764685075", formData.passionate_filmmaking);
+  add("entry.1449878167", formData.bring_to_team);
+  formData.positions.forEach((position) => add("entry.948068760", position));
+  formData.program.forEach((program) => add("entry.817191573", program));
+  add("entry.1357031227", formData.disabilities);
+  add("entry.790084750", formData.costs_agreement ? "I understand that Lights, Camera, Learn's International Internship Programs are not free. I will incur all costs associated with traveling on this trip." : undefined);
+  add("entry.1680251043", formData.physical_agreement ? "I understand that the internship is mentally and physically demanding and requires long hours, travel, and being on my feet all day." : undefined);
+  add("entry.331469201", formData.legal_agreement ? "I understand that interns must sign a liability contract, media release, and confirmatory agreement before the internship." : undefined);
+  add("entry.405946877", formData.how_did_you_hear);
+
+  const response = await fetch(googleFormResponseUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: googleFormData.toString(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Google Form submission failed with status ${response.status}`);
+  }
 }
 
 export async function submitApplication(data: unknown) {
-  try {
-    const headersList = await headers();
-    const forwardedFor = headersList.get("x-forwarded-for");
-    const rawIp = forwardedFor ? forwardedFor.split(",")[0].trim() : "unknown";
-    
-    // 1. Rate Limiting via Postgres (Hash IP for privacy)
-    // Note: If no DB is connected during local testing, this will fail unless mocked.
-    // We enforce DB as source of truth.
-    const ipHash = crypto.createHash('sha256').update(rawIp).digest('hex');
-    
-    try {
-      // Clean up old rate limits (> 5 mins)
-      await sql`DELETE FROM rate_limits WHERE last_submission < NOW() - INTERVAL '5 minutes'`;
-      
-      const rateLimitRes = await sql`
-        INSERT INTO rate_limits (ip_hash, submissions_count) 
-        VALUES (${ipHash}, 1)
-        ON CONFLICT (ip_hash) DO UPDATE 
-        SET submissions_count = rate_limits.submissions_count + 1,
-            last_submission = CURRENT_TIMESTAMP
-        RETURNING submissions_count;
-      `;
-      
-      if (rateLimitRes[0].submissions_count > 3) {
-        return { success: false, error: "Too many requests. Please try again later." };
-      }
-    } catch (dbErr) {
-      console.error("Database connection/rate limit error:", dbErr);
-      return { success: false, error: "A server database error occurred. Please try again." };
-    }
+  const parsed = applicationSchema.safeParse(data);
+  if (!parsed.success) {
+    return { success: false, error: "Invalid form data.", details: parsed.error.format() };
+  }
 
-    // 2. Validation
-    const parsed = applicationSchema.safeParse(data);
-    if (!parsed.success) {
-      return { success: false, error: "Invalid form data.", details: parsed.error.format() };
-    }
+  const { cfTurnstileResponse, ...formData } = parsed.data;
+  const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
 
-    const { cfTurnstileResponse, ...formData } = parsed.data;
+  if (!turnstileSecret && process.env.NODE_ENV === "production") {
+    return { success: false, error: "Spam protection is not configured. Please try again later." };
+  }
 
-    // 3. Turnstile Verification
+  if (turnstileSecret) {
     const turnstileRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `secret=${process.env.TURNSTILE_SECRET_KEY}&response=${cfTurnstileResponse}&remoteip=${rawIp}`,
+      body: new URLSearchParams({
+        secret: turnstileSecret,
+        response: cfTurnstileResponse,
+      }).toString(),
     });
 
     const turnstileData = await turnstileRes.json();
     if (!turnstileData.success && process.env.NODE_ENV === "production") {
-      // Note: Turnstile might fail on localhost if not configured for it, 
-      // but in production it MUST pass.
       return { success: false, error: "Spam protection verification failed. Please try again." };
     }
+  }
 
-    // 4. Duplicate Check (within DB)
-    const duplicateRes = await sql`
-      SELECT id FROM internship_applications 
-      WHERE email = ${formData.email} 
-      AND created_at > NOW() - INTERVAL '5 minutes' 
-      LIMIT 1;
-    `;
-    if (duplicateRes.length > 0) {
-      return { success: false, error: "It looks like you have already submitted this application." };
-    }
-
-    // Combine address fields for DB
-    const address = [formData.addressLine1, formData.addressLine2, formData.city, formData.state, formData.zip]
-      .filter(Boolean)
-      .join(", ");
-
-    // 5. Database Persistence (Source of Truth)
-    let submissionId;
-    try {
-      const insertRes = await sql`
-        INSERT INTO internship_applications (
-          source_form, name, pronouns, email, phone, birthday, nationality, address, languages, 
-          film_project, favorite_movie, traveled, why_youth, passions, passionate_filmmaking, bring_to_team, 
-          positions, program, disabilities, costs_agreement, physical_agreement, legal_agreement, how_did_you_hear
-        ) VALUES (
-          '/internship-application', ${formData.name}, ${formData.pronouns}, ${formData.email}, ${formData.phone}, 
-          ${formData.birthday}, ${formData.nationality}, ${address || null}, ${formData.languages}, 
-          ${formData.film_project || null}, ${formData.favorite_movie}, ${formData.traveled}, ${formData.why_youth}, 
-          ${formData.passions || null}, ${formData.passionate_filmmaking}, ${formData.bring_to_team}, 
-          ${JSON.stringify(formData.positions)}, ${JSON.stringify(formData.program)}, ${formData.disabilities || null}, 
-          ${formData.costs_agreement}, ${formData.physical_agreement}, ${formData.legal_agreement}, ${formData.how_did_you_hear}
-        ) RETURNING id;
-      `;
-      submissionId = insertRes[0].id;
-    } catch (insertErr) {
-      console.error("Failed to save application to DB:", insertErr);
-      return { success: false, error: "Failed to save application securely. Please try again later." };
-    }
-
-    // 5.5 Google Sheets Webhook
-    if (process.env.GOOGLE_SHEETS_WEBHOOK_URL) {
-      try {
-        const sheetPayload = {
-          name: formData.name,
-          pronouns: formData.pronouns,
-          email: formData.email,
-          phone: formData.phone,
-          birthday: formData.birthday,
-          nationality: formData.nationality,
-          address: address, // Combined address for Column H
-          languages: formData.languages,
-          film_project: formData.film_project,
-          favorite_movie: formData.favorite_movie,
-          traveled: formData.traveled,
-          why_youth: formData.why_youth,
-          passions: formData.passions,
-          passionate_filmmaking: formData.passionate_filmmaking,
-          bring_to_team: formData.bring_to_team,
-          positions: formData.positions.join(", "),
-          program: formData.program.join(", "),
-          disabilities: formData.disabilities,
-          costs_agreement: formData.costs_agreement ? "Yes" : "No",
-          physical_agreement: formData.physical_agreement ? "Yes" : "No",
-          legal_agreement: formData.legal_agreement ? "Yes" : "No",
-          how_did_you_hear: formData.how_did_you_hear,
-          secret: process.env.GOOGLE_SHEETS_WEBHOOK_SECRET
-        };
-
-        const sheetRes = await fetch(process.env.GOOGLE_SHEETS_WEBHOOK_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(sheetPayload)
-        });
-
-        if (!sheetRes.ok) {
-          console.error("Google Sheets webhook failed:", sheetRes.status, await sheetRes.text());
-        }
-      } catch (sheetErr) {
-        console.error("Google Sheets webhook error:", sheetErr);
-        // Note: we don't fail the request here, DB holds the record.
-      }
-    }
-
-    // 6. Email Delivery (Does not fail the request if it errors, just updates DB)
-    const destination = process.env.DESTINATION_EMAIL;
-    if (destination) {
-      const emailHtml = `
-        <h2>New Internship Application</h2>
-        <p><strong>Submission ID:</strong> ${submissionId}</p>
-        <p><strong>Submitted At:</strong> ${new Date().toISOString()}</p>
-        
-        <h3>Personal Information</h3>
-        <p><strong>Name:</strong> ${escapeHtml(formData.name)}</p>
-        <p><strong>Pronouns:</strong> ${escapeHtml(formData.pronouns)}</p>
-        <p><strong>Email:</strong> ${escapeHtml(formData.email)}</p>
-        <p><strong>Phone:</strong> ${escapeHtml(formData.phone)}</p>
-        <p><strong>Birthday:</strong> ${escapeHtml(formData.birthday)}</p>
-        <p><strong>Nationality:</strong> ${escapeHtml(formData.nationality)}</p>
-        <p><strong>Address:</strong> ${escapeHtml(address)}</p>
-        <p><strong>Languages:</strong> ${escapeHtml(formData.languages)}</p>
-
-        <h3>Short Answers</h3>
-        <p><strong>Film Project Experience:</strong> ${escapeHtml(formData.film_project)}</p>
-        <p><strong>Favorite Movie:</strong> ${escapeHtml(formData.favorite_movie)}</p>
-        <p><strong>Travel Experience:</strong> ${escapeHtml(formData.traveled)}</p>
-        <p><strong>Why Youth:</strong> ${escapeHtml(formData.why_youth)}</p>
-        <p><strong>Passions:</strong> ${escapeHtml(formData.passions)}</p>
-        <p><strong>Passionate about Filmmaking:</strong> ${escapeHtml(formData.passionate_filmmaking)}</p>
-        <p><strong>Bring to Team:</strong> ${escapeHtml(formData.bring_to_team)}</p>
-
-        <h3>Program Details</h3>
-        <p><strong>Positions:</strong> ${escapeHtml(formData.positions.join(", "))}</p>
-        <p><strong>Programs:</strong> ${escapeHtml(formData.program.join(", "))}</p>
-        <p><strong>Disabilities:</strong> ${escapeHtml(formData.disabilities)}</p>
-
-        <h3>Agreements & Meta</h3>
-        <p><strong>Costs Agreement:</strong> Yes</p>
-        <p><strong>Physical Agreement:</strong> Yes</p>
-        <p><strong>Legal Agreement:</strong> Yes</p>
-        <p><strong>How did you hear about us:</strong> ${escapeHtml(formData.how_did_you_hear)}</p>
-      `;
-
-      const result = await resend.emails.send({
-        from: "Internship Application <onboarding@resend.dev>",
-        replyTo: formData.email,
-        to: destination,
-        subject: `New Internship Application from ${formData.name}`,
-        html: emailHtml,
-      });
-
-      if (result.error) {
-        console.error("Resend Error:", result.error);
-        await sql`UPDATE internship_applications SET email_delivery_status = 'failed', email_delivery_error = ${result.error.message} WHERE id = ${submissionId}`;
-        // Note: we still return success=true because the DB stored it safely.
-      } else {
-        await sql`UPDATE internship_applications SET email_delivery_status = 'sent' WHERE id = ${submissionId}`;
-      }
-    } else {
-       await sql`UPDATE internship_applications SET email_delivery_status = 'failed', email_delivery_error = 'DESTINATION_EMAIL not configured' WHERE id = ${submissionId}`;
-    }
-
+  try {
+    await submitToGoogleForm(formData);
     return { success: true };
-  } catch (err) {
-    console.error("Submission error:", err);
-    return { success: false, error: "An unexpected error occurred. Please try again." };
+  } catch (error) {
+    console.error("Google Form submission error:", error);
+    return { success: false, error: "We could not submit your application. Please try again." };
   }
 }

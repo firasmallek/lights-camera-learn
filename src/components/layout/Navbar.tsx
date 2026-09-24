@@ -68,7 +68,7 @@ export function Navbar() {
               onMouseEnter={() => setActiveDropdown('apply')}
               onMouseLeave={() => setActiveDropdown(null)}
             >
-              <Link href="/apply-2" className="text-gray-600 hover:text-black text-sm font-fjalla uppercase tracking-widest flex items-center py-2">
+              <Link href="/apply" className="text-gray-600 hover:text-black text-sm font-fjalla uppercase tracking-widest flex items-center py-2">
                 Apply
               </Link>
               {activeDropdown === 'apply' && (

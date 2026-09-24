@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -64,6 +65,12 @@ export default function InternshipForm() {
         <h2 className="font-fjalla text-3xl uppercase tracking-widest mb-4">Application Received!</h2>
         <p className="font-libre text-lg text-gray-700">Next, say hi and send your resume to us at contact@lightscameralearn.org.</p>
         <p className="font-libre text-lg text-gray-700 mt-4">Check your inbox! We&apos;ll be in touch.</p>
+        <Link
+          href="/"
+          className="inline-block bg-black text-white px-10 py-4 mt-8 font-fjalla text-lg uppercase tracking-widest hover:bg-gray-800 transition-colors"
+        >
+          Back to Home
+        </Link>
       </div>
     );
   }
