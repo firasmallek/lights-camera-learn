@@ -32,7 +32,7 @@ const applicationSchema = z.object({
   cfTurnstileResponse: z.string().min(1, "Turnstile verification failed")
 });
 
-const googleFormResponseUrl = "https://docs.google.com/forms/d/e/1FAIpQLSc5rSiffSe24O0xEA68SLVUjNkyyw4-SSrWhbSnKKiqdibCYQ/formResponse";
+const googleFormResponseUrl = "https://docs.google.com/forms/d/e/1FAIpQLSf8ZMuW1a2CVO7e8MSEgvqQzVkI1LHN9hNbEu-zfYPDKthOvQ/formResponse";
 
 type ApplicationData = Omit<z.infer<typeof applicationSchema>, "cfTurnstileResponse">;
 

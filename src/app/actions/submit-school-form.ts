@@ -18,7 +18,7 @@ const schoolSchema = z.object({
   cfTurnstileResponse: z.string().min(1, "Turnstile verification failed"),
 });
 
-const googleFormResponseUrl = "https://docs.google.com/forms/d/e/1FAIpQLScPmk2uuvTKAZnqktwqUCrSGTtlp_YgXnYOKJ2NaBg4NtvdOw/formResponse";
+const googleFormResponseUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfgcgKTHFV_Mq431IB-hiQ2IbtmL9a4enqDyksxhSGQtg5Oig/formResponse";
 
 export async function submitSchoolForm(data: unknown) {
   const parsed = schoolSchema.safeParse(data);

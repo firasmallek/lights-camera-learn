@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useState } from "react";
 
 export function Navbar() {
@@ -11,25 +10,25 @@ export function Navbar() {
 
 
   return (
-    <header className="w-full bg-white border-b border-gray-100 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-24">
+    <header className="site-navbar w-full bg-white border-b border-gray-100 sticky top-0 z-50">
+      <div className="site-navbar__container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="site-navbar__row flex justify-between items-center h-24">
           
           {/* Logo */}
           <div className="flex-shrink-0 flex items-center">
             <Link href="/">
-              <Image 
-                src="/assets/logos/LCL_LOGO.png" 
+              <img
+                src="https://images.squarespace-cdn.com/content/v1/582f7e49e6f2e12eebc01f02/1548700299695-QN23SQ5EYN5CEZDRL0BU/LCL_LOGO+FINAL-14.png"
                 alt="Lights Camera Learn" 
                 width={80} 
                 height={80} 
-                className="object-contain"
+                className="site-navbar__logo object-contain"
               />
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center space-x-6">
+          <nav className="site-navbar__desktop hidden lg:flex items-center space-x-6">
             <Link href="/" className="text-gray-600 hover:text-black text-sm font-fjalla uppercase tracking-widest">
               About
             </Link>
@@ -86,26 +85,7 @@ export function Navbar() {
           </nav>
 
           {/* Social Icons & Mobile Toggle */}
-          <div className="flex items-center space-x-4">
-            <div className="hidden md:flex space-x-3 text-gray-400">
-              <a href="https://www.facebook.com/10216339393254344" target="_blank" rel="noopener noreferrer" className="hover:text-black transition-colors">FB</a>
-              <a href="https://www.instagram.com/lights_camera_learn/" target="_blank" rel="noopener noreferrer" className="hover:text-black transition-colors">IG</a>
-              <a href="https://www.youtube.com/channel/UCOgAxjSAZHaPE2UNngCoQFQ" target="_blank" rel="noopener noreferrer" className="hover:text-black transition-colors">YT</a>
-            </div>
-
-            <button 
-              className="lg:hidden text-gray-600 hover:text-black focus:outline-none"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                {isMobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
-          </div>
+          
         </div>
       </div>
 
