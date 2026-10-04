@@ -12,7 +12,7 @@ const starSchema = z.object({
   cfTurnstileResponse: z.string().min(1, "Turnstile verification failed"),
 });
 
-const googleFormResponseUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfIAK6csAyfD-qAIxIVe_VdM2sGs87E2J5rNTZAJlZ9z9lPdQ/formResponse";
+const googleFormResponseUrl = "https://docs.google.com/forms/d/e/1FAIpQLSf21HcR0gYSRd0zdUvBUcTff_rHn4hHbnzuSN9yoatlEEVEHQ/formResponse";
 
 export async function submitStarForm(data: unknown) {
   const parsed = starSchema.safeParse(data);

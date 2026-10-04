@@ -1,9 +1,12 @@
 import { PageContainer } from "@/components/layout/PageContainer";
+import { Navbar } from "@/components/layout/Navbar";
 import SchoolForm from "@/components/forms/SchoolForm";
 
 export default function SchoolsPage() {
   return (
-    <main className="bg-white min-h-screen">
+    <>
+      <Navbar />
+      <main className="bg-white min-h-screen">
       <PageContainer className="py-16 md:py-20">
         <header className="max-w-3xl mx-auto text-center mb-16">
           <h1 className="font-fjalla text-4xl md:text-5xl uppercase tracking-widest mb-6">Contact Us</h1>
@@ -12,6 +15,7 @@ export default function SchoolsPage() {
         </header>
         <SchoolForm />
       </PageContainer>
-    </main>
+      </main>
+    </>
   );
 }

@@ -1,9 +1,12 @@
 import InternshipForm from "@/components/forms/InternshipForm";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { Navbar } from "@/components/layout/Navbar";
 
 export default function InternshipApplicationPage() {
   return (
-    <main className="bg-white min-h-screen">
+    <>
+      <Navbar />
+      <main className="bg-white min-h-screen">
       <PageContainer className="py-16 md:py-20">
         <header className="max-w-4xl mx-auto mb-16 text-center">
           <h1 className="font-fjalla text-4xl md:text-5xl uppercase tracking-widest mb-8">
@@ -18,6 +21,7 @@ export default function InternshipApplicationPage() {
         </header>
         <InternshipForm />
       </PageContainer>
-    </main>
+      </main>
+    </>
   );
 }
