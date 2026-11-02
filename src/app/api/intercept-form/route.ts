@@ -9,9 +9,15 @@ interface SquarespaceField {
 export async function POST(req: Request) {
   try {
     const rawText = await req.text();
-    const payload = JSON.parse(rawText);
+    let payload: Record<string, unknown> = {};
+    try {
+      payload = JSON.parse(rawText);
+    } catch {
+      payload = {};
+    }
     
-    const isInternship = payload.pagePath === '/apply-2' || payload.pagePath === '/internship-application' || rawText.includes("What's your name?");
+    const pagePath = typeof payload.pagePath === 'string' ? payload.pagePath : '';
+    const isInternship = pagePath === '/apply-2' || pagePath === '/internship-application' || rawText.includes("What's your name?") || rawText.includes("preferred pronouns");
     
     if (isInternship) {
       let formFields: SquarespaceField[] = [];
@@ -21,8 +27,8 @@ export async function POST(req: Request) {
         } catch (e) {
           void e;
         }
-      } else {
-        formFields = payload.form || [];
+      } else if (Array.isArray(payload.form)) {
+        formFields = payload.form;
       }
 
       const getValue = (titleContains: string) => {
@@ -31,42 +37,42 @@ export async function POST(req: Request) {
       };
       
       const getName = (titleContains: string) => {
-          const field = formFields.find((f: SquarespaceField) => typeof f.title === 'string' && f.title.toLowerCase().includes(titleContains.toLowerCase()));
-          if (!field || !field.value) return "";
-          if (typeof field.value === 'object' && !Array.isArray(field.value)) {
-              return `${field.value.firstName || ''} ${field.value.lastName || ''}`.trim();
-          }
-          return typeof field.value === 'string' ? field.value : "";
+        const field = formFields.find((f: SquarespaceField) => typeof f.title === 'string' && f.title.toLowerCase().includes(titleContains.toLowerCase()));
+        if (!field || !field.value) return "";
+        if (typeof field.value === 'object' && !Array.isArray(field.value)) {
+          return `${field.value.firstName || ''} ${field.value.lastName || ''}`.trim();
+        }
+        return typeof field.value === 'string' ? field.value : "";
       };
       
       const getAddress = (titleContains: string) => {
-          const field = formFields.find((f: SquarespaceField) => typeof f.title === 'string' && f.title.toLowerCase().includes(titleContains.toLowerCase()));
-          if (!field || !field.value) return {};
-          if (typeof field.value === 'object' && !Array.isArray(field.value)) {
-              return {
-                  addressLine1: field.value.address1 || "",
-                  addressLine2: field.value.address2 || "",
-                  city: field.value.city || "",
-                  state: field.value.state || "",
-                  zip: field.value.zip || "",
-                  country: field.value.country || ""
-              };
-          }
-          return { addressLine1: typeof field.value === 'string' ? field.value : "" };
+        const field = formFields.find((f: SquarespaceField) => typeof f.title === 'string' && f.title.toLowerCase().includes(titleContains.toLowerCase()));
+        if (!field || !field.value) return {};
+        if (typeof field.value === 'object' && !Array.isArray(field.value)) {
+          return {
+            addressLine1: field.value.address1 || "",
+            addressLine2: field.value.address2 || "",
+            city: field.value.city || "",
+            state: field.value.state || "",
+            zip: field.value.zip || "",
+            country: field.value.country || ""
+          };
+        }
+        return { addressLine1: typeof field.value === 'string' ? field.value : "" };
       };
 
       const getCheckbox = (titleContains: string) => {
-          const val = getValue(titleContains);
-          if (Array.isArray(val)) return val;
-          if (typeof val === 'string' && val.length > 0) return [val]; 
-          return [];
+        const val = getValue(titleContains);
+        if (Array.isArray(val)) return val;
+        if (typeof val === 'string' && val.length > 0) return [val]; 
+        return [];
       };
 
       const addressObj = getAddress("address");
 
       const mappedData = {
         name: getName("name") || "",
-        pronouns: (getValue("pronouns") || "") as string,
+        pronouns: (getValue("pronoun") || "") as string,
         email: (getValue("email") || "") as string,
         phone: (getValue("phone") || "") as string,
         birthday: (getValue("birthday") || "") as string,
@@ -76,45 +82,35 @@ export async function POST(req: Request) {
         city: addressObj.city || "",
         state: addressObj.state || "",
         zip: addressObj.zip || "",
-        languages: (getValue("languages") || "") as string,
+        languages: (getValue("language") || "") as string,
         film_project: (getValue("film project") || "") as string,
         favorite_movie: (getValue("favorite movie") || "") as string,
-        traveled: (getValue("traveled outside") || "") as string,
-        why_youth: (getValue("why work with youth") || "") as string,
-        passions: (getValue("passions") || "") as string,
-        passionate_filmmaking: (getValue("passion for filmmaking") || "") as string,
-        bring_to_team: (getValue("bring to the team") || "") as string,
+        traveled: (getValue("traveled") || "") as string,
+        why_youth: (getValue("youth") || "") as string,
+        passions: (getValue("passion") || "") as string,
+        passionate_filmmaking: (getValue("filmmaking") || "") as string,
+        bring_to_team: (getValue("bring") || "") as string,
         positions: getCheckbox("positions") as string[],
         program: getCheckbox("program") as string[],
         disabilities: (getValue("disabilit") || "") as string,
-        costs_agreement: getValue("costs") ? true : false,
-        physical_agreement: getValue("physical") ? true : false,
-        legal_agreement: getValue("legal") ? true : false,
-        how_did_you_hear: (getValue("hear about us") || "") as string,
+        costs_agreement: getValue("free") || getValue("cost") ? true : false,
+        physical_agreement: getValue("physic") ? true : false,
+        legal_agreement: getValue("liability") || getValue("legal") ? true : false,
+        how_did_you_hear: (getValue("hear") || "") as string,
         cfTurnstileResponse: "skip"
       };
       
       const result = await submitApplication(mappedData);
       
       if (result.success) {
-        return NextResponse.json({});
+        return NextResponse.json({ result: "success" });
       } else {
-        return NextResponse.json({ error: result.error || "Submission failed" }, { status: 400 });
+        return NextResponse.json({ error: result.error || "Submission failed", details: (result as Record<string, unknown>).details }, { status: 400 });
       }
     } else {
-      const sqsRes = await fetch("https://www.lightscameralearn.org/api/form/SaveFormSubmission", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": req.headers.get("user-agent") || ""
-        },
-        body: rawText
-      });
-      const sqsData = await sqsRes.text();
-      return new NextResponse(sqsData, {
-        status: sqsRes.status,
-        headers: { "Content-Type": sqsRes.headers.get("content-type") || "application/json" }
-      });
+      // Newsletter or other contact form submission
+      console.log("Form submission received (newsletter/other):", JSON.stringify(payload));
+      return NextResponse.json({ result: "success" });
     }
   } catch (err) {
     console.error("Intercept error:", err);

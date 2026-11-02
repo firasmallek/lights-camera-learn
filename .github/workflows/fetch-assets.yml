@@ -1,0 +1,36 @@
+name: Fetch Assets in Cloud
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run asset downloader
+        run: node scripts/download-assets.js
+
+      - name: Commit and push downloaded assets
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/universal public/assets/extra
+          if git diff --staged --quiet; then
+            echo "No new assets to commit"
+          else
+            git commit -m "Auto-download universal and extra assets [skip ci]"
+            git push
+          fi

@@ -20,13 +20,10 @@ const nextConfig: NextConfig = {
         { source: '/updates', destination: '/html/updates.html' },
         { source: '/partner-1', destination: '/html/partner-1.html' },
         // Intercept form submissions
-        { source: '/api/form/SaveFormSubmission', destination: '/api/intercept-form' },
-        { source: '/universal/:path*', destination: 'https://www.lightscameralearn.org/universal/:path*' }
+        { source: '/api/form/SaveFormSubmission', destination: '/api/intercept-form' }
       ],
       afterFiles: [],
-      fallback: [
-        { source: '/api/:path*', destination: 'https://www.lightscameralearn.org/api/:path*' }
-      ]
+      fallback: []
     };
   },
 };

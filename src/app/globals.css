@@ -1,17 +1,21 @@
+@import url('https://fonts.googleapis.com/css2?family=Cutive+Mono&family=Fjalla+One&family=Libre+Franklin:wght@100..900&display=swap');
 @import "tailwindcss";
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --font-libre-franklin: 'Libre Franklin', ui-sans-serif, system-ui, sans-serif;
+  --font-fjalla-one: 'Fjalla One', ui-sans-serif, system-ui, sans-serif;
+  --font-cutive-mono: 'Cutive Mono', ui-monospace, monospace;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-libre-franklin), ui-sans-serif, system-ui, sans-serif;
-  --font-libre: var(--font-libre-franklin), ui-sans-serif, system-ui, sans-serif;
-  --font-fjalla: var(--font-fjalla-one), ui-sans-serif, system-ui, sans-serif;
-  --font-cutive: var(--font-cutive-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-sans: var(--font-libre-franklin);
+  --font-libre: var(--font-libre-franklin);
+  --font-fjalla: var(--font-fjalla-one);
+  --font-cutive: var(--font-cutive-mono);
 }
 
 body {
